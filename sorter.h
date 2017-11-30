@@ -36,6 +36,12 @@ struct Movie
   char* aspect_ratio;
   char* movie_facebook_likes;  
 };
+
+struct freeNode
+{
+  void* freePtr;
+  struct freeNode* next;
+};
 //mergesort prototype
 void mergesort(int selection, struct Movie* arr, int low, int high);
 

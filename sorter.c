@@ -28,10 +28,14 @@ int main(int argc, char * argv[])
 		return -1;
 	}
 
+	struct freeNode *head = malloc(sizeof(struct freeNode));
+	head->freePtr = NULL;
+	struct freeNode* newFree;
 
 	//size of CSV
 	size_t sizeCSV = 1000;
 	char* CSV = malloc(sizeof(char)*sizeCSV);
+	void* freeCSV = CSV;
 	
 	//stores size of trimBuffer
 	size_t sizeTrimBuffer = 50;
@@ -91,10 +95,11 @@ int main(int argc, char * argv[])
 	//counter for current location in individual struct
 	int n = 0;
 
+	void* freetempStr;
 	while(fgets(CSV, sizeof(char)*sizeCSV,stdin))
 	{	
 		//reallocs when i counter is larger than size of initial movies malloc
-		if (i > sizeMovies)
+		if (i >= sizeMovies)
 		{
 			//add 1000 movies to size of movies array
 			sizeMovies += 1000;		//adding 1000 movies to size of movies array
@@ -107,29 +112,51 @@ int main(int argc, char * argv[])
 				return -1; 			
 			}
 		}
-
+		
 		//dups CSV line
-		tempStr = strdup(CSV);
+		tempStr = strdup(CSV); 
+
+		//tempStr = malloc(sizeof(strlen(CSV)+1));
+		freetempStr = tempStr;
+		//strcpy(tempStr, CSV);
+		
+		freecounter++;
+		if(head->freePtr == NULL)
+		{
+			head->freePtr = freetempStr;
+			head->next = NULL;
+		}
+		else
+		{
+			struct freeNode* newFree = malloc(sizeof(struct freeNode));
+			newFree->freePtr = freetempStr;
+			newFree->next = head;
+			head = newFree;
+		}
+
 		//stores line until first quote
 		fronttoken = strsep(&tempStr, "\"");
 		//stores line from first quote > second quote
 		title = strsep(&tempStr, "\"");
-		
 		//stores line from second quote > newline
 		backtoken = strsep(&tempStr, "\n");
 
-		/*
-		* strdup seg faults if strdup dups a NULL
-		* tokenize fronttoken, if not NULL condition for examples where fronttoken is NULL, 
-		* such the first element having quotes (robust code)
-		*/
 		if(fronttoken != NULL)
 		{
-			tempStr = strdup(fronttoken);
+			//tempStr = strdup(fronttoken);
+			tempStr = malloc(strlen(fronttoken)+1);
+			freetempStr = tempStr;
+
+			newFree = malloc(sizeof(struct freeNode));
+			newFree->freePtr = freetempStr;
+			newFree->next = head;
+			head = newFree;
+
+			strcpy(tempStr, fronttoken);
 			//reallocing trimBuffer based on size of fronttoken. Since fronttoken is sometimes the whole line, it will be largest possible string to store
-			while(strlen(tempStr) > sizeTrimBuffer)		
+			while(strlen(tempStr) >= sizeTrimBuffer)		
 			{	//doubling size until larger than fronttoken
-				sizeTrimBuffer += 50;
+				sizeTrimBuffer += 100;
 				trimBuffer = realloc(trimBuffer, sizeof(char)*sizeTrimBuffer);
 				//if not enough mem
 				if(trimBuffer == NULL)
@@ -223,7 +250,16 @@ int main(int argc, char * argv[])
 		//Only tokenize backtoken if NOT NULL
 		if(backtoken != NULL)
 		{
-			tempStr = strdup(backtoken);
+			//tempStr = strdup(backtoken);
+			tempStr = malloc(strlen(backtoken)+1);
+			freetempStr = tempStr;
+
+			newFree = malloc(sizeof(struct freeNode));
+			newFree->freePtr = freetempStr;
+			newFree->next = head;
+			head = newFree;
+
+			strcpy(tempStr,backtoken);
 			if(title != NULL)
 			{
 				strcpy(trimBuffer, title);
@@ -232,10 +268,10 @@ int main(int argc, char * argv[])
 				//Only including title variable
 				if(n == 11)
 					movies[i].movie_title = title;
-				
-				token = strsep(&tempStr,",");	//Get rid of extra comma meant for title containing title
 				n++;
 			}
+			if(title != NULL)
+				strsep(&tempStr, ","); //getting rid of extra comma from title
 
 			token = strsep(&tempStr, ",");
 			while(token != NULL)
@@ -281,12 +317,14 @@ int main(int argc, char * argv[])
 				token = strsep(&tempStr, ",");
 				n++;
 			}
+			//free(freetempStr);
 		}
 		//resetting n after each line
 		n = 0;
 		//incrementing i movies
 		i++;
 	}
+	
 	int structCount = i;
 	
 	//Sort the movies array using the mergesort function
@@ -328,10 +366,19 @@ int main(int argc, char * argv[])
 		printf("\n");
 		k++;
 	}
+
+	while(head != NULL)
+	{
+		struct freeNode* old = head;
+		free(head->freePtr);
+		head = head->next;
+		free(old);
+	}
 	
 	//freeing mallocs	
-	free(CSV);
+	free(freeCSV);
 	free(trimBuffer);
+	free(tempStr);
 	free(movies);
 	
 	return 0;
